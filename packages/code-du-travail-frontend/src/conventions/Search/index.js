@@ -1,4 +1,4 @@
-import { Button, Input, Label, theme } from "@socialgouv/cdtn-ui";
+import { Button, Input, InputRadio, theme } from "@socialgouv/cdtn-ui";
 import debounce from "debounce-promise";
 import { useRouter } from "next/router";
 import React, { useEffect, useState } from "react";
@@ -11,7 +11,10 @@ import { CompanyTile } from "./CompanyTile";
 import { ConventionLink } from "./ConventionLink";
 import { HelpModal } from "./HelpModal";
 import { ResultList } from "./ResultList";
-import useSearchCC from "./searchHook";
+import useSearchCC, {
+  CONVENTION_SEARCH,
+  ENTERPRISE_SEARCH,
+} from "./searchHook";
 
 const trackInput = debounce((query, path, trackingUID) => {
   if (query.length > 1) {
@@ -19,10 +22,26 @@ const trackInput = debounce((query, path, trackingUID) => {
   }
 }, 2000);
 
+const searchTypes = [
+  {
+    key: ENTERPRISE_SEARCH,
+    label: "Nom de votre entreprise ou numéro de SIRET",
+    placeholder:
+      "Saisissez le nom de votre entreprise ou son numéro de SIREN ou SIRET",
+  },
+  {
+    key: CONVENTION_SEARCH,
+    label: "Nom de votre convention collective ou IDCC",
+    placeholder: "Saisissez votre convention collective ou IDCC",
+  },
+];
+
 const Search = ({ onSelectConvention }) => {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [address, setAddress] = useState("");
   const [trackingUID, setTrackingUID] = useState("");
+  const [searchType, setSearchType] = useState(ENTERPRISE_SEARCH);
 
   useEffect(() => {
     // we want to connect events that are
@@ -36,25 +55,87 @@ const Search = ({ onSelectConvention }) => {
     setQuery(value);
   };
 
+  const onAddressChange = (keyEvent) => {
+    const value = keyEvent.target.value;
+    trackInput(value, router.asPath, trackingUID);
+    setAddress(value);
+  };
+
   const [status, { conventions = [], entreprises = [] } = {}] = useSearchCC(
-    query
+    query,
+    address,
+    searchType
   );
+
+  // TODO copied from outils
+  const { breakpoints, fonts, spacings } = theme;
+  const RadioContainer = styled.div`
+    display: flex;
+    flex-direction: ${(props) =>
+      props.direction === "row" ? "row" : "column"};
+    align-items: flex-start;
+    justify-content: flex-start;
+    margin-bottom: ${spacings.medium};
+  `;
+  const Label = styled.label`
+    display: block;
+    margin-top: ${spacings.medium};
+    margin-bottom: ${spacings.small};
+    font-weight: 600;
+    font-size: ${fonts.sizes.headings.small};
+    cursor: ${(props) => (props.as ? "default" : "pointer")};
+    @media (max-width: ${breakpoints.mobile}) {
+      font-size: ${fonts.sizes.default};
+    }
+  `;
 
   return (
     <>
       <Label htmlFor="convention-search">
-        Renseignez le nom de votre convention collective, le nom de votre
-        entreprise ou son SIRET.
+        Recherchez votre convention collective par :
       </Label>
+
+      <RadioContainer>
+        {searchTypes.map(({ key, label }) => {
+          return (
+            <InputRadio
+              key={`radio-${key}`}
+              label={label}
+              name={`radio-${key}`}
+              id={`radio-${key}`}
+              value={searchType === key}
+              checked={searchType === key}
+              onChange={() => setSearchType(key)}
+            />
+          );
+        })}
+      </RadioContainer>
+
       <BlockInput
         role="search"
-        placeholder="Nom de la convention collective, de l’entreprise ou son SIRET"
+        placeholder={
+          searchTypes.find(({ key }) => key == searchType).placeholder
+        }
         value={query}
         type="search"
         name="q"
         id="convention-search"
         onChange={onInputChange}
       />
+
+      {searchType == ENTERPRISE_SEARCH ? (
+        <BlockInput
+          role="search"
+          placeholder="Ville ou code postal"
+          value={address}
+          type="search"
+          name="a"
+          id="convention-search-address"
+          onChange={onAddressChange}
+        />
+      ) : (
+        ""
+      )}
       {query && (
         <ResultsContainer>
           {status === "loading" && (
@@ -88,9 +169,11 @@ const Search = ({ onSelectConvention }) => {
                   query={query}
                   items={entreprises.map((entreprise) => (
                     <CompanyTile
+                      searchType={searchType}
                       {...entreprise}
                       key={entreprise.siret}
                       onClick={onSelectConvention}
+                      addressSet={address != ""}
                     />
                   ))}
                 />

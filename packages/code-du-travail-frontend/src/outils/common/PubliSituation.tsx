@@ -14,6 +14,12 @@ function SituationInput({ element, form }: PublicodesInputProps): JSX.Element {
   if (element.name === "contrat salarié - convention collective") {
     return <>{form.ccn.shortTitle}</>;
   }
+  if (
+    element.name === "contrat salarié - ancienneté" &&
+    form.seniorityGreaterThanTwoYears === true
+  ) {
+    return <>Plus de 2 ans (exclu)</>;
+  }
   switch (element.rawNode.cdtn?.type) {
     case RuleType.Liste:
       return <>{reverseValues(element.rawNode.cdtn.valeurs)[element.value]}</>;
@@ -34,7 +40,7 @@ type Props = {
 
 const PubliSituation: React.FC<Props> = ({ situation, form }) => (
   <>
-    <SectionTitle>Récapitulatif des éléments saisis</SectionTitle>
+    <SectionTitle>Les éléments saisis</SectionTitle>
     <ul>
       {situation.map((element) => (
         <li key={element.name}>
